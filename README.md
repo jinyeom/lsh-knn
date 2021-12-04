@@ -4,7 +4,7 @@
 
 ### Why is LSH exciting?
 
-**Generally, LSH offers a way to narrow the scope of search without prior knowledge about the target dataset (i.e., data-independent).** This property benefits cases outside of methods like k-NN for information retrieval. For example, one such place is _inside_ of a [Transformer](https://arxiv.org/abs/1706.03762) model: the dot-product attention mechanism. Kitaev, Kaiser and Levskaya proposed an alternative architecture called [Reformer](https://arxiv.org/abs/2001.04451), which reduces the complexity of the attention mechanism from $O(N^2)$ to $O(NlogN)$ (where $N$ is the number of input items) by introducing LSH to each attention layer.
+**Generally, LSH offers a way to narrow the scope of search without any prior knowledge about the target dataset (i.e., data-independent).** This property benefits cases outside of methods like k-NN for information retrieval. For example, one such place is _inside_ of a [Transformer](https://arxiv.org/abs/1706.03762) model: the dot-product attention mechanism. Kitaev, Kaiser and Levskaya proposed an alternative architecture called [Reformer](https://arxiv.org/abs/2001.04451), which reduces the complexity of the attention mechanism from O(N^2) to O(NlogN) (where N is the number of input items) by introducing LSH to each attention layer.
 
 
 ```python

@@ -1,5 +1,11 @@
 # Approximate k-NN with locality-sensitive hashing
 
+**Locality-sensitive hashing (LSH)** is a method that hashes similar data points to have a high chance of being grouped together. This makes LSH a good way to optimize similarity search: by comparing the query data only with a subset of presumably similar items, you can avoid having to sort the entire dataset by some distance metric. The trade-off here is that there is no guarantee for correctness.
+
+### Why is LSH exciting?
+
+**Generally, LSH offers a way to narrow the scope of search without prior knowledge about the target dataset (i.e., data-independent).** This property benefits cases outside of methods like k-NN for information retrieval. For example, one such place is _inside_ of a [Transformer](https://arxiv.org/abs/1706.03762) model: the dot-product attention mechanism. Kitaev, Kaiser and Levskaya proposed an alternative architecture called [Reformer](https://arxiv.org/abs/2001.04451), which reduces the complexity of the attention mechanism from $O(N^2)$ to $O(NlogN)$ (where $N$ is the number of input items) by introducing LSH to each attention layer.
+
 
 ```python
 import numpy as np
@@ -9,6 +15,8 @@ import numpy as np
 ```python
 rng = np.random.default_rng(0)
 ```
+
+For the purpose of this demonstration, we will generate a random "dataset" of Gaussian samples and a query vector from the same distribution.
 
 
 ```python
@@ -23,6 +31,8 @@ q = rng.normal(size=n)       # query vector
 ```
 
 ## Vanilla k-NN search
+
+As a baseline, we implement a vanilla k-nearest neighbors (k-NN) search algorithm.
 
 
 ```python
@@ -42,14 +52,11 @@ def knn_search(query, data, k=5, debug=False):
 
 
 ```python
-neighbors, dists = knn_search(q, X, debug=True)
+neighbors, dists = knn_search(q, X, debug=False)  # set debug=True for additional information
 for i, (neighbor, dist) in enumerate(zip(neighbors, dists)):
     print(f"top {i + 1}: dist = {dist}")
 ```
 
-    [DEBUG] max dist = 19.576730097361967
-    [DEBUG] min dist = 12.72876479759339
-    [DEBUG] mean dist = 16.136399135895942
     top 1: dist = 12.72876479759339
     top 2: dist = 12.980832845009397
     top 3: dist = 13.109098301375685
@@ -59,15 +66,19 @@ for i, (neighbor, dist) in enumerate(zip(neighbors, dists)):
 
 ## Approximate k-NN search
 
+In this section, we will implement locality-sensitive hashing (LSH) which maps a numerical vector to a hash value (an integer) with a set of random hyperplanes. The main idea of the technique is to split the input data space with a plane and determine whether the data point belongs above (1) or below (0) the plane. By repeating this technique $b$ times, each data point can be encoded to a binary string of length $b$. For the purpose of building a hash table, we convert these binary strings to decimal values.
+
 
 ```python
 def hamming_hash(data, hyperplanes):
-    b = hyperplanes.shape[0]
+    b = len(hyperplanes)
     hash_key = (data @ hyperplanes.T) >= 0
-    bin_vals = np.array([2 ** i for i in range(b)], dtype=int)
-    hash_key = hash_key @ bin_vals
+    dec_vals = np.array([2 ** i for i in range(b)], dtype=int)
+    hash_key = hash_key @ dec_vals
     return hash_key
 ```
+
+Below, we write a small function that generates random hyperplanes, which determines the number of hyperplanes based on a desired expected number of elements in each bucket.
 
 
 ```python
@@ -103,6 +114,8 @@ print("avg_bucket_size =", avg_bucket_size)
     avg_bucket_size = 19.53125
 
 
+Now, we implement a k-NN search algorithm that incorporates LSH. Note that we can repeat the search with more than one set of hyperplanes to boost the accuracy. Feel free to experiment by tweaking the argument `repeat=10`.
+
 
 ```python
 def approx_knn_search(query, data, k=5, bucket_size=16, repeat=10, debug=False):
@@ -122,38 +135,11 @@ def approx_knn_search(query, data, k=5, bucket_size=16, repeat=10, debug=False):
 
 
 ```python
-neighbors, dists = approx_knn_search(q, X, repeat=24, debug=True)
+neighbors, dists = approx_knn_search(q, X, repeat=24, debug=False)  # set debug=True for additional information
 for i, (neighbor, dist) in enumerate(zip(neighbors, dists)):
     print(f"top {i + 1}: dist = {dist}")
 ```
 
-    [DEBUG] i = 0, avg_bucket_size = 19.53125
-    [DEBUG] i = 1, avg_bucket_size = 19.53125
-    [DEBUG] i = 2, avg_bucket_size = 19.53125
-    [DEBUG] i = 3, avg_bucket_size = 19.53125
-    [DEBUG] i = 4, avg_bucket_size = 19.53125
-    [DEBUG] i = 5, avg_bucket_size = 19.53125
-    [DEBUG] i = 6, avg_bucket_size = 19.53125
-    [DEBUG] i = 7, avg_bucket_size = 19.53125
-    [DEBUG] i = 8, avg_bucket_size = 19.53125
-    [DEBUG] i = 9, avg_bucket_size = 19.53125
-    [DEBUG] i = 10, avg_bucket_size = 19.53125
-    [DEBUG] i = 11, avg_bucket_size = 19.53125
-    [DEBUG] i = 12, avg_bucket_size = 19.53125
-    [DEBUG] i = 13, avg_bucket_size = 19.569471624266146
-    [DEBUG] i = 14, avg_bucket_size = 19.53125
-    [DEBUG] i = 15, avg_bucket_size = 19.53125
-    [DEBUG] i = 16, avg_bucket_size = 19.53125
-    [DEBUG] i = 17, avg_bucket_size = 19.53125
-    [DEBUG] i = 18, avg_bucket_size = 19.53125
-    [DEBUG] i = 19, avg_bucket_size = 19.53125
-    [DEBUG] i = 20, avg_bucket_size = 19.53125
-    [DEBUG] i = 21, avg_bucket_size = 19.53125
-    [DEBUG] i = 22, avg_bucket_size = 19.53125
-    [DEBUG] i = 23, avg_bucket_size = 19.53125
-    [DEBUG] max dist = 18.035577554152816
-    [DEBUG] min dist = 12.980832845009397
-    [DEBUG] mean dist = 15.752405187018653
     top 1: dist = 12.980832845009397
     top 2: dist = 13.315716707872218
     top 3: dist = 13.599262272317079
